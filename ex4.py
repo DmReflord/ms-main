@@ -54,7 +54,7 @@ print("\n" + "=" * 50)
 for i in range(5):
     print(f"Группа {i} ({count[i]} раб.) |", end=" ")
     for j in range(4):
-        val = v[i][j].varValue  # Изменил имя переменной с value на val
+        val = v[i][j].varValue 
         print(f" {val:5.1f} ", end=" ")
     print()
 

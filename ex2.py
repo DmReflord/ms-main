@@ -1,4 +1,5 @@
 from pulp import *
+import pandas as pd
 
 def solve_ex2():
     
@@ -32,11 +33,159 @@ def solve_ex2():
     print(f"\nОптимальные объемы:")
     for v in prob.variables():
         print(f"{v.name} = {v.varValue:.2f} тыс. м³")
+     # Создание Excel документа
+    create_excel_report(prob)
     
-    # Анализ дефицитных ресурсов
-    """ print(f"\nАнализ ограничений:")
-    for name, constraint in prob.constraints.items():
-        print(f"{name}: {constraint.value():.2f} (свободный ресурс: {-constraint.value():.2f})")
- """
+    return prob
+    
+def create_excel_report(prob):
+    """Создание Excel ведомости в формате исходного документа"""
+    
+    # Получаем результаты
+    results = {}
+    for v in prob.variables():
+        results[v.name] = v.varValue
+    
+    # Создаем данные для таблицы
+    data = []
+    
+    # Заголовок таблицы
+    data.append(['Ведомость объема работ'])
+    data.append([])  # Пустая строка
+    
+    # Шапка таблицы
+    data.append(['№ пп', 'Наименование', 'Поставщик', 'Потребитель','Объем работ', '', 'Затраты', ''])
+    data.append(['', '','', '', 'Ед.изм.', 'Кол-во', 'Ед.изм.', 'Кол-во'])
+    data.append(['1', '2', '3', '4', '5', '6','7','8'])
+    
+    # Данные по балласту
+    data.append([
+        '1',
+        'Балласт',
+        '1',
+        '1',
+        'м³',
+        f"{results['x11']:.2f}",
+        'тыс.ден.ед',
+        f"{10 * results['x11']:.2f}"
+    ])
+    
+    data.append([
+        '2',
+        'Балласт',
+        '1',
+        '2',
+        'м³',
+        f"{results['x12']:.2f}",
+        'тыс.ден.ед',
+        f"{9* results['x12']:.2f}"
+    ])
+    
+    data.append([
+        '3',
+        'Балласт',
+        '2',
+        '1',
+        'м³',
+        f"{results['x21']:.2f}",
+        'тыс.ден.ед',
+        f"{4 * results['x21']:.2f}"
+    ])
 
-solve_ex2()
+    data.append([
+        '4',
+        'Балласт',
+        '2',
+        '2',
+        'м³',
+        f"{results['x22']:.2f}",
+        'тыс.ден.ед',
+        f"{5 * results['x22']:.2f}"
+    ])
+    
+    # Итоги
+    #total_volume = sum(results.values())
+    total_cost = 10*results['x11'] + 9*results['x12'] + 4*results['x21'] + 5*results['x22']
+    data.append(['Итого', '', '', '', '','', '', f"{total_cost:.2f}"])
+    
+    # Пустые строки перед подписью
+    data.append([])
+    data.append([])
+    
+    # Подпись
+    data.append(['', '', '',  'Составил:','', 'Романова О.А.'])
+    
+    # Создаем DataFrame
+    df = pd.DataFrame(data)
+    
+    # Создаем Excel файл
+    filename = f"VolumeStatement_2.xlsx"
+    
+    with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Ведомость', index=False, header=False)
+        
+        # Получаем workbook и worksheet для форматирования
+        workbook = writer.book
+        worksheet = writer.sheets['Ведомость']
+        
+        # Настраиваем ширину колонок
+        column_widths = [8, 25, 15, 15, 14, 14, 14, 14]
+        for i, width in enumerate(column_widths, 1):
+            worksheet.column_dimensions[chr(64 + i)].width = width
+        
+        # Форматируем заголовок
+        from openpyxl.styles import Font, Alignment, Border, Side
+        
+        # Стиль для заголовка
+        title_font = Font(size=16, bold=True)
+        worksheet['A1'].font = title_font
+        worksheet.merge_cells('A1:F1')
+        worksheet['A1'].alignment = Alignment(horizontal='center')
+        
+        # Стиль для шапки таблицы
+        header_font = Font(bold=True)
+        for row in range(3, 10):  # Строки с заголовками
+            for col in range(1, 9):
+                cell = worksheet.cell(row=row, column=col)
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Объединяем ячейки шапки
+        worksheet.merge_cells('A3:A4')  # № пп
+        worksheet.merge_cells('B3:B4')  # Наименование
+        worksheet.merge_cells('C3:C4')  # Поставщик
+        worksheet.merge_cells('D3:D4')  # Потребитель
+        worksheet.merge_cells('E3:F3')  # Объем работ
+        worksheet.merge_cells('G3:H3')  # Затраты
+        worksheet.merge_cells('A10:G10')  # Итого
+        
+        # Границы для таблицы
+        thin_border = Border(left=Side(style='thin'), 
+                           right=Side(style='thin'), 
+                           top=Side(style='thin'), 
+                           bottom=Side(style='thin'))
+        
+        # Применяем границы ко всей таблице
+        for row in range(3, 11):  # От заголовков до итогов
+            for col in range(1, 9):
+                worksheet.cell(row=row, column=col).border = thin_border
+        
+        # Выравнивание для числовых данных
+        for row in range(6, 11):  # Строки с данными
+            worksheet.cell(row=row, column=6).alignment = Alignment(horizontal='right')
+            worksheet.cell(row=row, column=8).alignment = Alignment(horizontal='right')
+        
+        # Итоговая строка
+        worksheet.cell(row=10, column=6).alignment = Alignment(horizontal='right')
+        worksheet.cell(row=10, column=8).alignment = Alignment(horizontal='right')
+        worksheet.cell(row=10, column=1).font = Font(bold=True)
+        
+        # Подпись
+        worksheet.cell(row=13, column=4).font = Font(bold=True)
+        worksheet.cell(row=13, column=6).font = Font(bold=True)
+    
+        print(f"\nExcel ведомость сохранена как: {filename}")
+
+# Запуск решения
+if __name__ == "__main__":
+    solve_ex2()
