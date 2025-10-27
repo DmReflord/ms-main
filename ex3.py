@@ -1,72 +1,34 @@
 from pulp import *
+import pandas as pd
 
-def solve_assignment():
-    # Создаем задачу - задача о назначениях
-    prob = LpProblem("Brigade_Assignment", LpMinimize)
+def create_assignment_matrix(prob):
+    """Создает матрицу распределения 0 и 1"""
     
-    # Создаем переменные - БИНАРНЫЕ (0 или 1)
-    variables = {}
-    for i in range(1, 5):  # 4 бригады
-        for j in range(1, 5):  # 4 объекта
-            variables[f'x{i}{j}'] = LpVariable(f"x{i}{j}", cat='Binary')
+    # Создаем пустую матрицу 4x4
+    assignment_matrix = [[0] * 4 for _ in range(4)]
     
-    # Целевая функция - минимизация времени
-    prob += (30*variables['x11'] + 40*variables['x12'] + 50*variables['x13'] + 60*variables['x14'] +
-             37*variables['x21'] + 47*variables['x22'] + 57*variables['x23'] + 58*variables['x24'] +
-             27*variables['x31'] + 44*variables['x32'] + 49*variables['x33'] + 57*variables['x34'] +
-             35*variables['x41'] + 37*variables['x42'] + 47*variables['x43'] + 63*variables['x44']), "Total_Time"
+    # Заполняем матрицу значениями из решения
+    for i in range(4):
+        for j in range(4):
+            var_name = f"x{i+1}{j+1}"
+            var_value = prob.variablesDict()[var_name].varValue
+            assignment_matrix[i][j] = int(var_value)  # Преобразуем в 0 или 1
     
-    # Ограничения: каждая бригада назначается на один объект
-    prob += variables['x11'] + variables['x12'] + variables['x13'] + variables['x14'] == 1, "Brigade1_assignment"
-    prob += variables['x21'] + variables['x22'] + variables['x23'] + variables['x24'] == 1, "Brigade2_assignment"
-    prob += variables['x31'] + variables['x32'] + variables['x33'] + variables['x34'] == 1, "Brigade3_assignment"
-    prob += variables['x41'] + variables['x42'] + variables['x43'] + variables['x44'] == 1, "Brigade4_assignment"
-    
-    # Ограничения: на каждый объект назначается одна бригада
-    prob += variables['x11'] + variables['x21'] + variables['x31'] + variables['x41'] == 1, "Object1_assignment"
-    prob += variables['x12'] + variables['x22'] + variables['x32'] + variables['x42'] == 1, "Object2_assignment"
-    prob += variables['x13'] + variables['x23'] + variables['x33'] + variables['x43'] == 1, "Object3_assignment"
-    prob += variables['x14'] + variables['x24'] + variables['x34'] + variables['x44'] == 1, "Object4_assignment"
-    
-    # Решение задачи
-    prob.solve()
-    
-    # Вывод результатов
-    print("=" * 60)
-    print("ОПТИМАЛЬНОЕ РАСПРЕДЕЛЕНИЕ БРИГАД ПО ОБЪЕКТАМ")
-    print("=" * 60)
-    print(f"Статус: {LpStatus[prob.status]}")
-    print(f"Минимальное суммарное время: {value(prob.objective)} единиц времени")
-    
-    print("\nНазначения бригад:")
-    assignments = []
-    for i in range(1, 5):
-        for j in range(1, 5):
-            if variables[f'x{i}{j}'].varValue == 1:
-                time = 0
-                if f'x{i}{j}' == 'x11': time = 30
-                elif f'x{i}{j}' == 'x12': time = 40
-                elif f'x{i}{j}' == 'x13': time = 50
-                elif f'x{i}{j}' == 'x14': time = 60
-                elif f'x{i}{j}' == 'x21': time = 37
-                elif f'x{i}{j}' == 'x22': time = 47
-                elif f'x{i}{j}' == 'x23': time = 57
-                elif f'x{i}{j}' == 'x24': time = 58
-                elif f'x{i}{j}' == 'x31': time = 27
-                elif f'x{i}{j}' == 'x32': time = 44
-                elif f'x{i}{j}' == 'x33': time = 49
-                elif f'x{i}{j}' == 'x34': time = 57
-                elif f'x{i}{j}' == 'x41': time = 35
-                elif f'x{i}{j}' == 'x42': time = 37
-                elif f'x{i}{j}' == 'x43': time = 47
-                elif f'x{i}{j}' == 'x44': time = 63
-                
-                assignments.append(f"Бригада {i} → Объект {j} (время: {time})")
-    
-    for assignment in sorted(assignments):
-        print(assignment)
+    return assignment_matrix
 
-# Альтернативный вариант с использованием списков (более компактный)
+def print_assignment_matrix(assignment_matrix):
+    """Выводит матрицу распределения в консоль"""
+    
+    print("\nМАТРИЦА РАСПРЕДЕЛЕНИЯ:")
+    print("       Объект1  Объект2  Объект3  Объект4")
+    print("      " + "-" * 35)
+    
+    for i in range(4):
+        row_str = f"Бриг{i+1} |"
+        for j in range(4):
+            row_str += f"    {assignment_matrix[i][j]}     "
+        print(row_str)
+
 def solve_assignment_compact():
     prob = LpProblem("Brigade_Assignment", LpMinimize)
     
@@ -95,18 +57,162 @@ def solve_assignment_compact():
     prob.solve()
     
     print("\n" + "=" * 60)
-    print("КОМПАКТНОЕ РЕШЕНИЕ")
+    print("РЕЗУЛЬТАТЫ РАСПРЕДЕЛЕНИЯ БРИГАД")
     print("=" * 60)
     print(f"Статус: {LpStatus[prob.status]}")
-    print(f"Минимальное суммарное время: {value(prob.objective)} единиц времени")
+    print(f"Минимальное суммарное время: {value(prob.objective)} дней")
     
+    # СОЗДАЕМ МАТРИЦУ РАСПРЕДЕЛЕНИЯ
+    assignment_matrix = create_assignment_matrix(prob)
+    
+    # ВЫВОДИМ МАТРИЦУ
+    print_assignment_matrix(assignment_matrix)
+    
+    # Собираем результаты назначений
+    assignments = []
     print("\nНазначения:")
     for i in range(4):
         for j in range(4):
             if x[i][j].varValue == 1:
-                print(f"Бригада {i+1} → Объект {j+1} (время: {time_matrix[i][j]})")
+                print(f"Бригада {i+1} → Объект {j+1} (время: {time_matrix[i][j]} дней)")
+                assignments.append({
+                    'brigade': i+1,
+                    'object': j+1,
+                    'time': time_matrix[i][j]
+                })
+    
+    # Создание Excel документа
+    create_excel_report(assignments)
+    
+    return prob, assignments
 
-# Запуск решений
+def create_excel_report(assignments):
+    """Создание Excel ведомости в точном формате"""
+    
+    # Создаем данные для таблицы
+    data = []
+    
+    # Заголовок таблицы
+    data.append(['Ведомость распределения бригад по объектам строительства'])
+    data.append([])  # Пустая строка
+    
+    # Шапка таблицы - ПРАВИЛЬНАЯ СТРУКТУРА
+    data.append(['', '', '', 'Срок', ''])  # Верхняя строка шапки
+    data.append(['№ пп', 'Бригада', 'Объект', 'Ед.изм.', 'Кол-во'])  # Основная шапка
+    data.append(['1', '2', '3', '4', '5'])  # Нумерация колонок
+    
+    # Данные по назначениям
+    total_time = 0
+    for idx, assignment in enumerate(assignments, 1):
+        data.append([
+            idx,
+            assignment['brigade'],
+            assignment['object'],
+            'дни',
+            assignment['time']
+        ])
+        total_time += assignment['time']
+    
+    # Итоги
+    data.append(['Итого', '', '', '', total_time])
+    
+    # Пустые строки перед подписью
+    data.append([])
+    data.append([])
+    
+    # Подпись
+    data.append(['', '', '', 'Составил:', 'Романова О.А.'])
+    
+    # Создаем DataFrame
+    df = pd.DataFrame(data)
+    
+    # Создаем Excel файл
+    filename = "Brigade_Assignment_Report.xlsx"
+    
+    with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Ведомость', index=False, header=False)
+        
+        # Получаем workbook и worksheet для форматирования
+        workbook = writer.book
+        worksheet = writer.sheets['Ведомость']
+        
+        # Настраиваем ширину колонок
+        column_widths = [8, 11, 11, 14, 14]
+        for i, width in enumerate(column_widths, 1):
+            worksheet.column_dimensions[chr(64 + i)].width = width
+        
+        # Форматируем заголовок
+        from openpyxl.styles import Font, Alignment, Border, Side
+        
+        # Стиль для заголовка
+        title_font = Font(size=11, bold=True) 
+        worksheet['A1'].font = title_font
+        worksheet.merge_cells('A1:E1')
+        worksheet['A1'].alignment = Alignment(horizontal='center')
+        
+        # Стиль для шапки таблицы
+        header_font = Font(bold=True)
+        
+        # Объединяем ячейки шапки ПРАВИЛЬНО
+        worksheet.merge_cells('D3:E3')  # Объединяем "Срок" по горизонтали
+        
+        # Применяем стиль ко всем строкам шапки
+        for row in [3, 4, 5]:
+            for col in range(1, 6):
+                cell = worksheet.cell(row=row, column=col)
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Границы для таблицы
+        thin_border = Border(left=Side(style='thin'), 
+                           right=Side(style='thin'), 
+                           top=Side(style='thin'), 
+                           bottom=Side(style='thin'))
+        
+        # Применяем границы ко всей таблице (от шапки до итогов)
+        start_row = 3  # Начало таблицы (первая строка шапки)
+        end_row = 5 + len(assignments) + 1  # До строки с итогами включительно
+        
+        for row in range(start_row, end_row + 1):
+            for col in range(1, 6):
+                if row <= worksheet.max_row and col <= 5:
+                    worksheet.cell(row=row, column=col).border = thin_border
+        
+        # ВЫРАВНИВАНИЕ ПО ЦЕНТРУ для всех данных
+        for row in range(6, 6 + len(assignments)):  # Строки с данными
+            for col in range(1, 6):  # Все колонки
+                worksheet.cell(row=row, column=col).alignment = Alignment(
+                    horizontal='center', 
+                    vertical='center'
+                )
+        
+        # Итоговая строка
+        total_row = 6 + len(assignments)
+        worksheet.cell(row=total_row, column=1).font = Font(bold=True)
+        worksheet.cell(row=total_row, column=5).font = Font(bold=True)
+        worksheet.cell(row=total_row, column=5).alignment = Alignment(
+            horizontal='center', 
+            vertical='center'
+        )
+        
+        # Объединяем ячейки для "Итого"
+        worksheet.merge_cells(f'A{total_row}:D{total_row}')
+        
+        # Подпись
+        signature_row = total_row + 3
+        worksheet.cell(row=signature_row, column=4).font = Font(bold=True)
+        worksheet.cell(row=signature_row, column=5).font = Font(bold=True)
+        worksheet.cell(row=signature_row, column=4).alignment = Alignment(horizontal='right')
+        worksheet.cell(row=signature_row, column=5).alignment = Alignment(horizontal='center')
+        
+        # Выравнивание для пустых ячеек в подписи
+        for col in [1, 2, 3]:
+            worksheet.cell(row=signature_row, column=col).alignment = Alignment(horizontal='center')
+    
+    print(f"\nExcel ведомость сохранена как: {filename}")
+    
+    return filename
+
+# Запуск решения
 if __name__ == "__main__":
-    solve_assignment()
-    solve_assignment_compact()
+    prob, assignments = solve_assignment_compact()
